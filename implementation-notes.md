@@ -33,5 +33,8 @@
 
 Verification: targeted tests and make check passed on Go 1.27.1 (vet, lint with
 zero issues, race tests x5). gopls vulnerability check on the final dependencies
-reported no findings. Published consumer probe requires the initial pushed
-commit; run scripts/test-consumer.sh with that immutable commit. No CI workflow added.
+reported no findings. The published consumer probe passed for
+`49b04636363424351456e65b52c9484d3e8d898d`
+(`v0.0.0-20260922055603-49b046363634`) with Go 1.27.1, a fresh module cache,
+GOWORK=off, no replace directives and race checking. It resolved the public
+module and all handler packages without a goshared dependency. No CI workflow added.
