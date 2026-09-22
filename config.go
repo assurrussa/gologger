@@ -16,8 +16,9 @@ func (c Config) IsProduction() bool {
 	return c.Env == "production"
 }
 
+// IsStaging recognizes the configured staging value and the legacy stage alias.
 func (c Config) IsStaging() bool {
-	return c.Env == "stage"
+	return c.Env == "staging" || c.Env == "stage"
 }
 
 func (c Config) IsDev() bool {
