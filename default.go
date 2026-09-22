@@ -45,8 +45,8 @@ func SetDefault(log *Log) {
 	defaultLogger.Store(log)
 }
 
-// NewLogger preserves goshared's global constructor, including its shared level,
-// WARN fallback and local pretty output. Prefer New for independent instances.
+// NewLogger configures the global logger with a shared level, WARN fallback and
+// local pretty output. Prefer New for independent instances.
 // Use New followed by SetDefault only when process wiring requires it.
 func NewLogger(cfg Config, handlers ...OptionHandler) (*Log, error) {
 	if err := LogLevel.UnmarshalText([]byte(cfg.Level)); err != nil {

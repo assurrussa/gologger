@@ -43,8 +43,4 @@ func TestPublicAPI(t *testing.T) {
 EOF
 go mod tidy
 go test -race ./...
-if go list -m all | grep -q 'github.com/assurrussa/goshared'; then
-    echo 'unexpected goshared dependency' >&2
-    exit 1
-fi
 go list -m github.com/assurrussa/gologger

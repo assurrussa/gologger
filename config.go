@@ -1,7 +1,7 @@
 package gologger
 
-// Config is the portable logging configuration. Tags retain the goshared
-// environment/config contract; New does not read the environment itself.
+// Config is the portable logging configuration. Tags describe configuration and
+// environment mappings; New does not read the environment itself.
 type Config struct {
 	Env        string  `toml:"app_env" long:"app-env" env:"APP_ENV" value-default:"production" validate:"required,oneof=local development staging production"` //nolint:lll // it's config
 	Rate       float64 `toml:"rate" long:"log-rate" env:"LOG_RATE" value-default:"0" validate:"min=0,max=1"`
