@@ -1,28 +1,28 @@
 # gologger
 
-**Русский** | [English](README.en.md)
+**English** | [Русский](README.ru.md)
 
-Настраиваемый логер на базе стандартного `log/slog`: JSON и читаемый текстовый
-вывод, атрибуты из контекста, несколько получателей записей и расширение через
-собственные обработчики и middleware.
+A configurable logger built on the standard `log/slog` package: JSON and readable
+text output, context attributes, multiple destinations, and extensions through
+custom handlers and middleware.
 
-Требуется **Go 1.27+**. Рекомендуемый toolchain — **Go 1.27.1**.
-Используются стандартные
+Requires **Go 1.27+**. Recommended toolchain: **Go 1.27.1**.
+Uses the standard
 [`slog.NewMultiHandler`](https://pkg.go.dev/log/slog@go1.27.0#NewMultiHandler)
-и `slog.DiscardHandler`.
+and `slog.DiscardHandler`.
 
-## Установка
+## Installation
 
 ```sh
 go get github.com/assurrussa/gologger@latest
 ```
 
-Путь импорта: `github.com/assurrussa/gologger`, имя пакета — `gologger`.
+Import path: `github.com/assurrussa/gologger`; package name: `gologger`.
 
-## Быстрый старт
+## Quick start
 
-Пример тела функции, возвращающей `error`. Нужны импорты `context`, `log/slog`,
-`os` и `github.com/assurrussa/gologger`.
+The following is the body of a function returning `error`. Required imports:
+`context`, `log/slog`, `os`, and `github.com/assurrussa/gologger`.
 
 ```go
 log, err := gologger.New(gologger.Config{Level: "info"},
@@ -38,53 +38,53 @@ return log.Close()
 
 ```
 
-В приложении вызывайте `Close` после завершения всех пользователей логера.
-[Исполняемый пример](example_test.go) также проверяется командой `go test ./...`.
+In an application, call `Close` after all users of the logger have finished.
+The [executable example](example_test.go) is also checked by `go test ./...`.
 
-`New` создает независимый экземпляр: импорт пакета и создание логера не меняют
-`LogLevel` или `slog.Default()`. Для глобальной настройки приложения вызовите
-`gologger.SetDefault(log)` явно.
+`New` creates an independent instance: importing the package and constructing a
+logger do not change `LogLevel` or `slog.Default()`. To configure the application
+default, explicitly call `gologger.SetDefault(log)`.
 
-## Конфигурация
+## Configuration
 
-Поведение `gologger.New` без дополнительных опций:
+Behavior of `gologger.New` without additional options:
 
-| Поле `Config` | Значение по умолчанию | Поведение |
+| `Config` field | Default | Behavior |
 | --- | --- | --- |
-| `Level` | WARN при пустой строке | Минимальный уровень. Неверное значение возвращает ошибку. |
-| `Env` | Пустая строка | `local` и `development` включают читаемый pretty-формат; остальные значения — JSON. |
-| `JSON` | `false` | `true` принудительно включает JSON и в локальном окружении. |
-| `AddSource` | `false` | Добавляет файл и строку вызова. |
-| `AddVerbose` | `false` | Добавляет `program_info`: PID, версию программы и Go. |
-| `Rate` | `0` | Вероятность записи при `0 < Rate < 1`; `0` и `1` сохраняют все записи. |
-| `Output` | Пустая строка | Путь дополнительного буферизованного JSON-файла. |
+| `Level` | WARN for an empty string | Minimum level. An invalid value returns an error. |
+| `Env` | Empty string | `local` and `development` enable readable pretty output; other values select JSON. |
+| `JSON` | `false` | `true` forces JSON even in a local environment. |
+| `AddSource` | `false` | Includes the caller's file and line. |
+| `AddVerbose` | `false` | Adds `program_info`: PID, application version, and Go version. |
+| `Rate` | `0` | Probability of keeping a record when `0 < Rate < 1`; `0` and `1` keep all records. |
+| `Output` | Empty string | Path to an additional buffered JSON file. |
 
-Основной вывод направляется в stdout. `Config.Output` добавляет файл, сохраняя
-основной вывод, в том числе при использовании собственного обработчика.
+The primary output goes to stdout. `Config.Output` adds a file and keeps the
+primary output, including when a custom handler is supplied.
 
-`New` не читает переменные окружения и не применяет теги `value-default` или
-`validate` самостоятельно. Теги в `Config` предназначены для конфигурационного
-слоя приложения. Опции применяются поверх конфигурации.
+`New` does not read environment variables or apply the `value-default` and
+`validate` tags itself. The tags in `Config` are intended for the application's
+configuration layer. Options override configuration values.
 
-## Настройка и расширение
+## Customization and extensions
 
-- `WithWriter(io.Writer)` заменяет stdout у встроенного обработчика.
-- `WithHandler(slog.Handler)` заменяет встроенный обработчик. Переданный
-  обработчик сам определяет уровень, `AddSource` и `ReplaceAttr`.
-- `WithAdditionalHandlers(...OptionHandler)` добавляет получателей записей.
-  Каждая фабрика получает отдельную копию `slog.HandlerOptions`; результат `nil`
-  пропускается.
-- `WithMiddleware(...Middleware)` оборачивает общий обработчик. Middleware
-  вызываются в порядке перечисления: первый — снаружи остальных.
-- `WithLevel(slog.Leveler)` переопределяет `Config.Level`, не меняя переданное
-  значение. `*slog.LevelVar` позволяет менять уровень во время работы.
-- `WithReplaceAttr` настраивает фильтрацию, переименование или редактирование
-  атрибутов встроенных обработчиков и дополнительных фабрик.
-- `WithClosers(...io.Closer)` передает логеру ответственность за закрытие
-  дополнительных ресурсов после успешного `New`.
+- `WithWriter(io.Writer)` replaces stdout for the built-in handler.
+- `WithHandler(slog.Handler)` replaces the built-in handler. The supplied
+  handler controls its own level, `AddSource`, and `ReplaceAttr` settings.
+- `WithAdditionalHandlers(...OptionHandler)` adds destinations. Each factory
+  receives its own copy of `slog.HandlerOptions`; a `nil` result is skipped.
+- `WithMiddleware(...Middleware)` wraps the combined handler. Middleware runs
+  in the supplied order: the first wrapper is the outermost.
+- `WithLevel(slog.Leveler)` overrides `Config.Level` without mutating the supplied
+  value. A `*slog.LevelVar` supports runtime level changes.
+- `WithReplaceAttr` configures attribute filtering, renaming, or redaction for
+  built-in handlers and additional handler factories.
+- `WithClosers(...io.Closer)` transfers responsibility for closing additional
+  resources after successful construction.
 
-Пример с динамическим уровнем, дополнительным выводом в stderr, редактированием
-атрибута и middleware. Нужны импорты `log/slog`, `os` и `github.com/assurrussa/gologger`.
+This example combines a dynamic level, an additional stderr destination,
+attribute redaction, and middleware. Required imports: `log/slog`, `os`,
+and `github.com/assurrussa/gologger`.
 
 ```go
 level := new(slog.LevelVar)
@@ -114,92 +114,92 @@ return log.Close()
 
 ```
 
-`WithLevel` влияет на встроенные обработчики и фабрики, использующие переданные
-им опции. У обработчика из `WithHandler` собственный порог. Изменение `LevelVar`
-затрагивает только логеры, которым явно передан этот указатель.
+`WithLevel` affects built-in handlers and factories that use the supplied options.
+A handler passed through `WithHandler` controls its own threshold. Changing a
+`LevelVar` affects only loggers explicitly configured with that pointer.
 
-Порядок обработки: **атрибуты контекста → middleware → sampling → получатели**.
-Обработчики и middleware должны сохранять контракт `slog.Handler`: `Enabled`,
-`WithAttrs`, `WithGroup` и безопасность конкурентных вызовов. Для общего writer,
-который используется несколькими независимыми обработчиками, синхронизацию
-обеспечивает вызывающий код.
+Processing order: **context attributes → middleware → sampling → destinations**.
+Handlers and middleware must preserve the `slog.Handler` contract, including
+`Enabled`, `WithAttrs`, `WithGroup`, and concurrent access safety. If several
+independent handlers share a writer, the caller must synchronize that writer.
 
-## Контекст и дочерние логеры
+## Context and derived loggers
 
-`WithValue(ctx, slog.Attr)` создает контекст с дополнительным атрибутом. Передайте
-его в `InfoContext`, `DebugContext`, `WarnContext`, `ErrorContext` или `LogAttrs`,
-чтобы атрибут попал в запись. Дочерние контексты не изменяют атрибуты друг друга.
+`WithValue(ctx, slog.Attr)` creates a context containing an additional attribute.
+Pass it to `InfoContext`, `DebugContext`, `WarnContext`, `ErrorContext`, or
+`LogAttrs` to include the attribute in a record. Sibling contexts do not mutate
+each other's attributes.
 
-`WithNamed` добавляет поле `name`, `WithAttrs` — постоянные атрибуты. Оба метода
-возвращают интерфейс `Logger` и сохраняют общие ресурсы с родителем. Встроенный
-`*slog.Logger` доступен через поле `Logger`; унаследованные `With` и `WithGroup`
-возвращают обычный `*slog.Logger`. Ресурсы закрывает исходный `*gologger.Log`.
+`WithNamed` adds the `name` field; `WithAttrs` adds persistent attributes. Both
+return the `Logger` interface and share resources with the parent. The embedded
+`*slog.Logger` is available through the `Logger` field; inherited `With` and
+`WithGroup` methods return a regular `*slog.Logger`. The original `*gologger.Log`
+remains responsible for closing resources.
 
-`Error(err)` создает строковый атрибут `error`; передавайте ненулевую ошибку.
-`Discard` создает логер без вывода, а `DiscardJSONWithWriter` и
-`DiscardTextWithWriter` — логеры для переданного writer. Эти функции используют
-общий `LogLevel`.
+`Error(err)` creates a string attribute named `error`; pass a non-nil error.
+`Discard` creates a logger with no output; `DiscardJSONWithWriter` and
+`DiscardTextWithWriter` create loggers for the supplied writer. These functions
+use the shared `LogLevel`.
 
 ## Sampling
 
-Для `0 < Rate < 1` библиотека принимает одно случайное решение на запись, поэтому
-все получатели видят одинаковый набор выбранных записей. Sampling применяется ко
-всем уровням, включая ERROR. Значения `0` и `1` отключают sampling.
+For `0 < Rate < 1`, the library makes one random decision per record, so all
+destinations receive the same selected records. Sampling applies to every level,
+including ERROR. Values `0` and `1` disable sampling.
 
-Отрицательные значения, значения больше `1` и NaN в `New` возвращают ошибку.
+Negative values, values greater than `1`, and NaN cause `New` to return an error.
 
-## Публичные обработчики
+## Public handlers
 
-Все пути ниже начинаются с `github.com/assurrussa/gologger/`:
+All paths below are prefixed with `github.com/assurrussa/gologger/`:
 
-- `handlers/slogcontext` — добавляет атрибуты из контекста.
-- `handlers/slogpretty` — читаемый локальный вывод с группами, `LogValuer`,
-  `ReplaceAttr` и информацией об источнике вызова.
-- `handlers/slogdiscard` — обработчик без вывода.
+- `handlers/slogcontext` adds attributes from the context.
+- `handlers/slogpretty` provides readable local output with groups, `LogValuer`,
+  `ReplaceAttr`, and caller source information.
+- `handlers/slogdiscard` discards records.
 
-Обработчики работают с обычным `slog.New`, без `gologger.Log`.
+Handlers work with a regular `slog.New` without a `gologger.Log` wrapper.
 
-## Ресурсы и завершение работы
+## Resources and shutdown
 
-`Config.Output` создает новый файл с правами `0600`; права существующего файла
-не меняются. Данные буферизуются и сохраняются при закрытии логера.
+`Config.Output` creates new files with mode `0600`; permissions of existing files
+are unchanged. Records are buffered and persisted when the logger is closed.
 
-`Close()` сбрасывает буферы и закрывает принадлежащие логеру ресурсы один раз.
-`Flush()` — совместимое имя для того же завершающего действия, а не периодический
-сброс буфера. Все вызовы, включая конкурентные вызовы через дочерние логеры,
-возвращают сохраненную ошибку закрытия. Перед закрытием остановите пользователей
-логера; запись после закрытия не поддерживается.
+`Close()` flushes and closes owned resources once. `Flush()` is a compatibility
+name for the same terminal operation, not a periodic buffer flush. All calls,
+including concurrent calls through derived loggers, return the stored close
+error. Stop the logger's users before closing it; logging after close is unsupported.
 
-Переданные writer и обработчик по умолчанию остаются в собственности вызывающего
-кода и не закрываются библиотекой. `WithClosers` передает ответственность только
-после успешного конструктора. Ресурсы закрываются в обратном порядке; каждый
-`io.Closer` должен сам сбрасывать свои буферы. Библиотека не запускает горутины
-или фоновые таймеры.
+Supplied writers and handlers remain owned by the caller unless ownership is
+explicitly transferred, and are not closed by the library. `WithClosers` transfers
+responsibility only after construction succeeds. Resources close in reverse
+order; each `io.Closer` must flush its own buffers. The library starts no goroutines
+or background timers.
 
-## Глобальный логер
+## Global logger
 
-`SetDefault(log)` устанавливает логер пакета и `slog.Default()`. Предыдущий
-экземпляр остается под управлением приложения и автоматически не закрывается.
-`Default()` возвращает текущий логер пакета.
+`SetDefault(log)` updates both the package default and `slog.Default()`. The
+previous instance remains owned by the application and is not closed automatically.
+`Default()` returns the current package logger.
 
-`NewLogger` создает и устанавливает глобальный логер, меняет общий `LogLevel`,
-использует WARN при неверном уровне, игнорирует `JSON` в `local`/`development`
-и трактует rate вне `(0, 1)` как отключенный sampling. Для независимых экземпляров
-используйте `New`. Общий `LogLevel` меняют через `.Set`, не заменой указателя.
+`NewLogger` creates and installs a global logger, updates the shared `LogLevel`,
+falls back to WARN for an invalid level, ignores `JSON` in `local`/`development`,
+and treats rates outside `(0, 1)` as disabled sampling. Use `New` for independent
+instances. Change the shared `LogLevel` through `.Set`; do not replace its pointer.
 
-## Проверки
+## Validation
 
-Нужны Go 1.27+ и `golangci-lint`:
+Requires Go 1.27+ and `golangci-lint`:
 
 ```sh
 make check
 ./scripts/test-consumer.sh <published-version-or-commit>
 ```
 
-`make check` запускает vet, lint и race-тесты пять раз. Consumer probe создает
-отдельный Go-модуль с `GOWORK=off`, загружает указанную опубликованную версию без
-`replace` и проверяет публичные импорты с race detector.
+`make check` runs vet, lint, and race tests five times. The consumer probe creates
+a separate Go module with `GOWORK=off`, downloads the specified published version
+without `replace` directives, and checks the public imports with the race detector.
 
-## Лицензия
+## License
 
 [MIT](LICENSE).
