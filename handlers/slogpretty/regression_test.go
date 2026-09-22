@@ -18,11 +18,11 @@ import (
 func TestPrettyPreservesDuplicateFields(t *testing.T) {
 	var output bytes.Buffer
 	log := slog.New(slogpretty.NewHandler(&output, nil)).With(
-		"tag", "parent",
+		slog.String("tag", "parent"),
 		slog.Group("details", slog.Int("first", 1)),
 	)
 	log.Info("original message",
-		"tag", "record",
+		slog.String("tag", "record"),
 		slog.Group("details", slog.Int("second", 2)),
 		slog.String("msg", "user message"),
 		slog.String("level", "user level"),
@@ -77,8 +77,8 @@ func TestPrettyPreservesTransformedBuiltins(t *testing.T) {
 	if err := json.Unmarshal([]byte(text[start:]), &fields); err != nil {
 		t.Fatal(err)
 	}
-	if fields[slog.TimeKey] != float64(123456789) || fields[slog.LevelKey] != float64(42) ||
-		fields[slog.MessageKey] != false {
+	message, ok := fields[slog.MessageKey].(bool)
+	if !ok || message || fields[slog.TimeKey] != float64(123456789) || fields[slog.LevelKey] != float64(42) {
 		t.Fatalf("transformed attributes corrupted: %v", fields)
 	}
 	if strings.Contains(text, "redacted message") || strings.Contains(text, "[00:00:00.000]") {
