@@ -2,11 +2,10 @@
 package slogpretty
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -44,39 +43,34 @@ type prettyWriter struct {
 }
 
 func (w *prettyWriter) Write(data []byte) (int, error) {
-	fields := make(map[string]any)
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.UseNumber()
-	if err := decoder.Decode(&fields); err != nil {
+	fields, err := decodeFields(data)
+	if err != nil {
 		return 0, fmt.Errorf("decode log record: %w", err)
 	}
-	stamp, _ := fields[slog.TimeKey].(string)
-	if stamp == "" {
-		stamp = "00:00:00.000"
-	}
+	stamp := fields.takeString(slog.TimeKey)
 	if parsed, err := time.Parse(time.RFC3339Nano, stamp); err == nil {
 		stamp = parsed.Format("15:04:05.000")
 	}
-	level, _ := fields[slog.LevelKey].(string)
-	message, _ := fields[slog.MessageKey].(string)
-	delete(fields, slog.TimeKey)
-	delete(fields, slog.LevelKey)
-	delete(fields, slog.MessageKey)
-	var attrs []byte
-	if len(fields) > 0 {
-		var err error
-		attrs, err = json.MarshalIndent(fields, "", "  ")
-		if err != nil {
-			return 0, fmt.Errorf("encode log fields: %w", err)
-		}
+	level := fields.takeString(slog.LevelKey)
+	message := fields.takeString(slog.MessageKey)
+	attrs, err := fields.indented()
+	if err != nil {
+		return 0, fmt.Errorf("encode log fields: %w", err)
 	}
-	line := fmt.Sprintf(
-		"[%s] %s %s %s\n",
-		stamp,
-		colorLevel(level),
-		color.CyanString(message),
-		color.WhiteString(string(attrs)),
-	)
+	parts := make([]string, 0, 4)
+	if stamp != "" {
+		parts = append(parts, "["+stamp+"]")
+	}
+	if level != "" {
+		parts = append(parts, colorLevel(level))
+	}
+	if message != "" {
+		parts = append(parts, color.CyanString(message))
+	}
+	if len(attrs) > 0 {
+		parts = append(parts, color.WhiteString(string(attrs)))
+	}
+	line := strings.Join(parts, " ") + "\n"
 	written, err := io.WriteString(w.writer, line)
 	if err != nil {
 		return 0, err
