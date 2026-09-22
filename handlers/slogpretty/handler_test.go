@@ -28,7 +28,12 @@ func TestPrettyPreservesSlogSemantics(t *testing.T) {
 		},
 	}})
 	log := slog.New(handler).With("root", true).WithGroup("request").With("count", 42)
-	log.Info("event", "credential", secret("plaintext"), "token", "token-value", "nested", slog.GroupValue(slog.Bool("valid", true)))
+	log.Info(
+		"event",
+		"credential", secret("plaintext"),
+		"token", "token-value",
+		"nested", slog.GroupValue(slog.Bool("valid", true)),
+	)
 	text := output.String()
 	if strings.Contains(text, "plaintext") || strings.Contains(text, "token-value") {
 		t.Fatalf("unresolved secret: %s", text)
@@ -42,7 +47,11 @@ func TestPrettyPreservesSlogSemantics(t *testing.T) {
 		t.Fatal(err)
 	}
 	request, ok := fields["request"].(map[string]any)
-	if !ok || request["count"] != float64(42) || request["credential"] != "[hidden]" || request["token"] != "[redacted]" || fields["root"] != true {
+	root, rootOK := fields["root"].(bool)
+	if !ok || !rootOK || !root ||
+		request["count"] != float64(42) ||
+		request["credential"] != "[hidden]" ||
+		request["token"] != "[redacted]" {
 		t.Fatalf("group or value corrupted: %v", fields)
 	}
 	if fields["source"] == nil {

@@ -3,6 +3,7 @@ package slogcontext
 import (
 	"context"
 	"log/slog"
+	"slices"
 )
 
 var _ slog.Handler = (*Handler)(nil)
@@ -54,7 +55,7 @@ func WithValue(parent context.Context, attr slog.Attr) context.Context {
 	}
 
 	if v, ok := parent.Value(slogFields).([]slog.Attr); ok {
-		v = append(v[:len(v):len(v)], attr)
+		v = append(slices.Clip(v), attr)
 		return context.WithValue(parent, slogFields, v)
 	}
 

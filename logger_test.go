@@ -81,7 +81,9 @@ func TestExtensionPipeline(t *testing.T) {
 	}
 	log, err := gologger.New(gologger.Config{},
 		gologger.WithHandler(slog.NewJSONHandler(&output, nil)),
-		gologger.WithAdditionalHandlers(func(opts *slog.HandlerOptions) slog.Handler { return slog.NewJSONHandler(&extra, opts) }),
+		gologger.WithAdditionalHandlers(func(opts *slog.HandlerOptions) slog.Handler {
+			return slog.NewJSONHandler(&extra, opts)
+		}),
 		gologger.WithMiddleware(wrap("outer"), wrap("inner")))
 	if err != nil {
 		t.Fatal(err)
@@ -142,7 +144,11 @@ func TestJSONOverrideAndReplaceAttr(t *testing.T) {
 		t.Fatalf("configured attributes missing: %v", record)
 	}
 	source, ok := record["source"].(map[string]any)
-	if !ok || !strings.HasSuffix(source["file"].(string), "logger_test.go") {
+	if !ok {
+		t.Fatalf("source is not a map: %v", record["source"])
+	}
+	file, ok := source["file"].(string)
+	if !ok || !strings.HasSuffix(file, "logger_test.go") {
 		t.Fatalf("source points at wrapper: %v", record["source"])
 	}
 }
@@ -154,6 +160,10 @@ func TestFileOutputAndSharedShutdown(t *testing.T) {
 		t.Fatal(err)
 	}
 	child := log.WithNamed("child")
+	childLog, ok := child.(*gologger.Log)
+	if !ok {
+		t.Fatalf("child is not *gologger.Log: %T", child)
+	}
 	var wg sync.WaitGroup
 	for range 30 {
 		wg.Go(func() { child.InfoContext(context.Background(), "persist") })
@@ -161,7 +171,7 @@ func TestFileOutputAndSharedShutdown(t *testing.T) {
 	wg.Wait()
 	for range 20 {
 		wg.Go(func() {
-			if err := child.(*gologger.Log).Flush(); err != nil {
+			if err := childLog.Flush(); err != nil {
 				t.Error(err)
 			}
 		})
@@ -209,19 +219,37 @@ func TestOwnedAndBorrowedResources(t *testing.T) {
 	if owned.count.Load() != 1 || borrowed.count.Load() != 0 {
 		t.Fatal("resource ownership violated")
 	}
-	_, err = gologger.New(gologger.Config{Output: filepath.Join(t.TempDir(), "missing", "log")}, gologger.WithClosers(borrowed))
+	_, err = gologger.New(
+		gologger.Config{Output: filepath.Join(t.TempDir(), "missing", "log")},
+		gologger.WithClosers(borrowed),
+	)
 	if err == nil || borrowed.count.Load() != 0 {
 		t.Fatal("failed construction took caller resource ownership")
 	}
 }
 
 func TestInvalidConfiguration(t *testing.T) {
-	for _, cfg := range []gologger.Config{{Level: "typo"}, {Rate: -1}, {Rate: 2}, {Rate: math.NaN()}, {Rate: math.Inf(1)}} {
+	for _, cfg := range []gologger.Config{
+		{Level: "typo"},
+		{Rate: -1},
+		{Rate: 2},
+		{Rate: math.NaN()},
+		{Rate: math.Inf(1)},
+	} {
 		if log, err := gologger.New(cfg); err == nil || log != nil {
 			t.Errorf("accepted invalid config: %+v", cfg)
 		}
 	}
-	for _, option := range []gologger.Option{nil, gologger.WithWriter(nil), gologger.WithHandler(nil), gologger.WithAdditionalHandlers(nil), gologger.WithMiddleware(nil), gologger.WithClosers(nil), gologger.WithMiddleware(func(slog.Handler) slog.Handler { return nil })} {
+	invalidOptions := []gologger.Option{
+		nil,
+		gologger.WithWriter(nil),
+		gologger.WithHandler(nil),
+		gologger.WithAdditionalHandlers(nil),
+		gologger.WithMiddleware(nil),
+		gologger.WithClosers(nil),
+		gologger.WithMiddleware(func(slog.Handler) slog.Handler { return nil }),
+	}
+	for _, option := range invalidOptions {
 		if log, err := gologger.New(gologger.Config{}, option); err == nil || log != nil {
 			t.Error("accepted invalid option")
 		}
@@ -236,7 +264,10 @@ func TestLegacyDefaultAndDiscard(t *testing.T) {
 		gologger.LogLevel.Set(previousLevel)
 	})
 	var output bytes.Buffer
-	log, err := gologger.NewLogger(gologger.Config{Level: "debug"}, func(opts *slog.HandlerOptions) slog.Handler { return slog.NewJSONHandler(&output, opts) })
+	log, err := gologger.NewLogger(
+		gologger.Config{Level: "debug"},
+		func(opts *slog.HandlerOptions) slog.Handler { return slog.NewJSONHandler(&output, opts) },
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

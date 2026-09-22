@@ -12,6 +12,7 @@ import (
 	"os"
 	"runtime"
 	"runtime/debug"
+	"slices"
 	"sync"
 
 	"github.com/assurrussa/gologger/handlers/slogcontext"
@@ -76,8 +77,8 @@ func New(cfg Config, opts ...Option) (*Log, error) {
 	if cfg.Rate > 0 && cfg.Rate < 1 {
 		handler = &samplingHandler{Handler: handler, rate: cfg.Rate, random: rand.Float64}
 	}
-	for i := len(o.middleware) - 1; i >= 0; i-- {
-		handler = o.middleware[i](handler)
+	for _, mw := range slices.Backward(o.middleware) {
+		handler = mw(handler)
 		if handler == nil {
 			var closeErr error
 			if sink != nil {
@@ -158,8 +159,8 @@ func (l *Log) Close() error {
 	}
 	resources := l.lifecycle
 	resources.once.Do(func() {
-		for i := len(resources.closers) - 1; i >= 0; i-- {
-			resources.err = errors.Join(resources.err, resources.closers[i].Close())
+		for _, closer := range slices.Backward(resources.closers) {
+			resources.err = errors.Join(resources.err, closer.Close())
 		}
 		if f, ok := resources.writer.(*os.File); ok {
 			if info, err := f.Stat(); err == nil && info.Mode().IsRegular() {

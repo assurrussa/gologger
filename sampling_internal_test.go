@@ -19,7 +19,10 @@ func TestSamplingPreservedAcrossDerivationAndDestinations(t *testing.T) {
 	log.InfoContext(context.Background(), "keep")
 	draw = 0.5
 	log.InfoContext(context.Background(), "drop")
-	if first.String() != second.String() || !strings.Contains(first.String(), `"request":{"id":"req"}`) || !strings.Contains(first.String(), "keep") || strings.Contains(first.String(), "drop") {
+	if first.String() != second.String() ||
+		!strings.Contains(first.String(), `"request":{"id":"req"}`) ||
+		!strings.Contains(first.String(), "keep") ||
+		strings.Contains(first.String(), "drop") {
 		t.Fatalf("sampling or attributes lost: %s / %s", first.String(), second.String())
 	}
 }

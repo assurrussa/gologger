@@ -70,7 +70,13 @@ func (w *prettyWriter) Write(data []byte) (int, error) {
 			return 0, fmt.Errorf("encode log fields: %w", err)
 		}
 	}
-	line := fmt.Sprintf("[%s] %s %s %s\n", stamp, colorLevel(level), color.CyanString(message), color.WhiteString(string(attrs)))
+	line := fmt.Sprintf(
+		"[%s] %s %s %s\n",
+		stamp,
+		colorLevel(level),
+		color.CyanString(message),
+		color.WhiteString(string(attrs)),
+	)
 	written, err := io.WriteString(w.writer, line)
 	if err != nil {
 		return 0, err
