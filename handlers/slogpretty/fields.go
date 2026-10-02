@@ -20,60 +20,85 @@ type recordFields []recordField
 
 func decodeFields(data []byte) (recordFields, error) {
 	decoder := json.NewDecoder(bytes.NewReader(data))
-	token, err := decoder.Token()
-	if err != nil {
-		return nil, err
-	}
-	if token != json.Delim('{') {
-		return nil, errors.New("log record must be a JSON object")
-	}
 	var fields recordFields
-	for decoder.More() {
-		token, err := decoder.Token()
-		if err != nil {
-			return nil, err
-		}
-		key, ok := token.(string)
-		if !ok {
-			return nil, errors.New("log field key must be a string")
-		}
+	if err := decodeObject(decoder, func(key string) error {
 		var value json.RawMessage
 		if err := decoder.Decode(&value); err != nil {
-			return nil, err
+			return err
 		}
 		fields = append(fields, recordField{key: key, value: value})
-	}
-	if _, err := decoder.Token(); err != nil {
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
-		if err != nil {
-			return nil, err
-		}
-		return nil, errors.New("multiple JSON values in log record")
+	if err := finishRecord(decoder); err != nil {
+		return nil, err
 	}
 	return fields, nil
 }
 
-// takeString moves only the first occurrence of a conventional metadata key to
-// the header. JSONHandler emits built-ins before user attributes. Non-string
+func decodeObject(decoder *json.Decoder, consume func(string) error) error {
+	token, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	if token != json.Delim('{') {
+		return errors.New("log record must be a JSON object")
+	}
+	for decoder.More() {
+		token, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		key, ok := token.(string)
+		if !ok {
+			return errors.New("log field key must be a string")
+		}
+		if err := consume(key); err != nil {
+			return err
+		}
+	}
+	_, err = decoder.Token()
+	return err
+}
+
+func finishRecord(decoder *json.Decoder) error {
+	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
+		if err != nil {
+			return err
+		}
+		return errors.New("multiple JSON values in log record")
+	}
+	return nil
+}
+
+// takeString moves a string from an already isolated built-in metadata scope to
+// the header. Callers must establish provenance before calling it. Non-string
 // replacements stay in the attribute object instead of being silently removed.
 func (fields *recordFields) takeString(key string) string {
 	for index, field := range *fields {
 		if field.key != key {
 			continue
 		}
-		if len(field.value) == 0 || field.value[0] != '"' {
-			return ""
-		}
-		var value string
-		if err := json.Unmarshal(field.value, &value); err != nil {
+		value, ok := field.stringValue()
+		if !ok {
 			return ""
 		}
 		*fields = slices.Delete(*fields, index, index+1)
 		return value
 	}
 	return ""
+}
+
+func (field recordField) stringValue() (string, bool) {
+	if len(field.value) == 0 || field.value[0] != '"' {
+		return "", false
+	}
+	var value string
+	if err := json.Unmarshal(field.value, &value); err != nil {
+		return "", false
+	}
+	return value, true
 }
 
 func (fields recordFields) indented() ([]byte, error) {
