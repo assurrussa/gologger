@@ -23,11 +23,41 @@ type Handler struct {
 }
 
 func NewHandler(writer io.Writer, opts *HandlerOptions) *Handler {
-	var slogOpts *slog.HandlerOptions
-	if opts != nil {
-		slogOpts = opts.SlogOpts
+	var options slog.HandlerOptions
+	if opts != nil && opts.SlogOpts != nil {
+		options = *opts.SlogOpts
 	}
-	return &Handler{Handler: slog.NewJSONHandler(&prettyWriter{writer: writer}, slogOpts)}
+	replace := options.ReplaceAttr
+	if replace == nil {
+		encoder := slog.NewJSONHandler(&prettyWriter{writer: writer}, &options).WithGroup("attrs")
+		return &Handler{Handler: encoder}
+	}
+	options.ReplaceAttr = func(groups []string, attr slog.Attr) slog.Attr {
+		if len(groups) != 0 {
+			return replace(groups[1:], attr)
+		}
+		// Internal carrier callbacks must not repeat the user's replacement.
+		switch value := attr.Value.Any().(type) {
+		case replacedAttr:
+			return value.attr
+		case frameEnd:
+			return attr
+		case groupAttr:
+			attr = value.attr
+			attr.Value = attr.Value.Resolve()
+			if attr.Value.Kind() == slog.KindGroup {
+				return frameMetadata("", attr)
+			}
+		}
+		originalKey := attr.Key
+		attr = replace(nil, attr)
+		attr.Value = attr.Value.Resolve()
+		return frameMetadata(originalKey, attr)
+	}
+	// The standard handler keeps every built-in subtree outside this scope.
+	// User keys can therefore never be mistaken for framed metadata.
+	encoder := slog.NewJSONHandler(&prettyWriter{writer: writer, framed: true}, &options).WithGroup("attrs")
+	return &Handler{Handler: encoder}
 }
 
 func (h *Handler) WithAttrs(attrs []slog.Attr) slog.Handler {
@@ -40,19 +70,20 @@ func (h *Handler) WithGroup(name string) slog.Handler {
 
 type prettyWriter struct {
 	writer io.Writer
+	framed bool
 }
 
 func (w *prettyWriter) Write(data []byte) (int, error) {
-	fields, err := decodeFields(data)
+	fields, headers, err := decodeRecord(data, w.framed)
 	if err != nil {
 		return 0, fmt.Errorf("decode log record: %w", err)
 	}
-	stamp := fields.takeString(slog.TimeKey)
+	stamp := headers[0]
 	if parsed, err := time.Parse(time.RFC3339Nano, stamp); err == nil {
 		stamp = parsed.Format("15:04:05.000")
 	}
-	level := fields.takeString(slog.LevelKey)
-	message := fields.takeString(slog.MessageKey)
+	level := headers[1]
+	message := headers[2]
 	attrs, err := fields.indented()
 	if err != nil {
 		return 0, fmt.Errorf("encode log fields: %w", err)
